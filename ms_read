@@ -1,0 +1,291 @@
+#!/usr/bin/env bash
+
+source "man_seeker.sh"
+
+file_extract_headers_man()
+{
+    local -n fehm_headers="$1"
+    local fehm_path="$2"
+    mapfile -t "$1" < <( zgrep '^\.\(TH\|SH\|SS\)' "$fehm_path" )
+    [ "${#fehm_headers[@]}" -gt 0 ]
+}
+
+file_extract_headers_mandoc()
+{
+    local -n fehmd_headers="$1"
+    local fehmd_path="$2"
+    mapfile -t "$1" < <( zgrep '^\.\(Dt\|Sh\|Ss\)' "$fehmd_path" )
+    [ "${#fehmd_headers[@]}" -gt 0 ]
+}
+
+file_identify_alias()
+{
+    local fia_path="$1"
+    local -a fia_reqs=()
+    mapfile -t "fia_reqs" < <( zgrep -m10 '^\.[^\]' "$fia_path" )
+
+    local -i fia_count="${#fia_reqs[@]}"
+    if [ "$fia_count" -gt 0 ]; then
+        local fia_line
+        for fia_line in "${fia_reqs[@]}"; do
+            if [ "${fia_line:0:3}" == ".so" ]; then
+                return 0
+            fi
+        done
+    fi
+
+    return 1
+}
+
+# Following path order from command manpath and the section order,
+# visit each file until the callback function returns 0.
+#
+# Args:
+#   (name)  name of callback to which fresh paths will be passed.
+#
+# Returns:
+#   0 if the callback returns 0 (successful search)
+#   1 if all directories processed without success.
+walk_man_paths()
+{
+    local wmp_callback="$1"
+
+    local wmp_root wmp_subdir wmp_path
+    for wmp_root in "${ManPaths[@]}"; do
+        for wmp_subdir in "${SearchOrder[@]}"; do
+            wmp_path="${wmp_root}/${wmp_subdir}"
+            if [ -d "$wmp_path" ]; then
+                if "$wmp_callback" "$wmp_path"; then
+                    return 0
+                fi
+            fi
+        done
+    done
+
+    return 1
+}
+
+walk_man_file_callback()
+{
+    local OIFS="$IFS"
+    local IFS=$'\n'
+    local -a wmfc_files=( "$1"/* )
+    IFS="$OIFS"
+
+    local wmfc_file
+    for wmfc_file in "${wmfc_files[@]}"; do
+        "$wmf_callback" "$wmfc_file"
+    done
+
+    return 1
+}
+
+walk_man_files()
+{
+    local wmf_callback="$1"
+    walk_man_paths "walk_man_file_callback"
+}
+
+# Placeholder function, to be replaced with a real analysis.
+analyze_man_file()
+{
+    local OIFS="$IFS"
+    local IFS=$'\n'
+    local -a lines=( $( zgrep ^\.S\[SH\] $1 ) )
+    IFS="$OIFS"
+    echo "There are ${#lines[*]} lines."
+    echo "They are:"
+    local line
+    for line in "${lines[@]}"; do
+        echo "  $line"
+    done
+}
+
+# Return an array of file paths found in the specified directory.
+#
+# Args:
+#   (name):   name of array variable in which the file paths will be returned.
+#   (string): string value of directory path from which file names will be taken.
+get_path_file_list()
+{
+    local -n gpfl_return="$1"
+    local gpfl_path="$2"
+
+    gpfl_return=( "$gpfl_path"/* )
+}
+
+# "Private" callback function supporting "Public" function
+# path_walk_find_first() Is called by walk_man_paths() for each file.
+# This function compares the current file with the "needle" (target
+# man page), saving the current file in the agreed-upon string
+# variable if the match is made.
+#
+# Args:
+#   (string):  string value of directory path to search
+#
+# Returns:
+#     0 if found, having updated parent variable.
+#     1 if not found.
+path_walk_find_first_callback()
+{
+    local -a pwffc_files
+    get_path_file_list "pwffc_files" "$1"
+
+    local pwffc_file pwffc_root
+    for pwffc_file in "${pwffc_files[@]}"; do
+        if [ -e "$pwffc_file" ]; then
+            path_extract_root "pwffc_root" "${pwffc_file}"
+            if [ "$pwffc_root" == "${pwff_needle}" ]; then
+                pwff_found_file="${pwffc_file}"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+# "Private" callback function supporting "Public" function
+# path_walk_find_all() Is called by walk_man_paths() for each file.
+# This function compares the current file with the "needle" (target
+# man page), saving each found file # the agreed-upon array variable
+# if the match is made.
+#
+# Args:
+#   (string):  string value of directory path to search
+#
+# Returns:
+#     1 to continue until all files considered
+path_walk_find_all_callback()
+{
+    local -a pwfac_files
+    get_path_file_list "pwfac_files" "$1"
+
+    local pwfac_file pwfac_root
+    for pwfac_file in "${pwfac_files[@]}"; do
+        if [ -e "$pwfac_file" ]; then
+            path_extract_root "pwfac_root" "${pwfac_file}"
+            if [ "$pwfac_root" == "${pwfa_needle}" ]; then
+                pwfa_file_list+=( "${pwfac_file}" )
+            fi
+        fi
+    done
+
+    # Always continue
+    return 1
+}
+
+# "Public" function to search for matching file, returning on first found match.
+#
+# Args:
+#  (name):   name of string variable in which result will be returned.
+#  (string): string value man page to find.
+path_walk_find_first()
+{
+    local -n pwff_found_file="$1"
+    local pwff_needle="$2"
+
+    pwff_found_file=""
+    walk_man_paths "path_walk_find_first_callback"
+    # return value of walk_man_paths becomes return value
+    # of this function as well.
+}
+
+# "Public" function to search for all matching files.
+#
+# Args:
+#  (name):   name of array variable in which matches will be returned.
+#  (string): string value man page to find.
+path_walk_find_all()
+{
+    local -n pwfa_file_list="$1"
+    local pwfa_needle="$2"
+
+    pwfa_file_list=()
+    walk_man_paths "path_walk_find_all_callback"
+
+    [ "${#pwfa_file_list[@]}" -gt 0 ];
+}
+
+
+#############################################
+########## Test and Demo Functions ##########
+#############################################
+test_find_man_file()
+{
+    local file_path
+    if path_walk_find_first "file_path" "$1"; then
+        echo "Found a '$1' man page at ${file_path}"
+        local -a array
+        file_extract_headers_man "array" "$file_path"
+    else
+        echo "Failed to find man page '$1'."
+    fi
+}
+
+test_find_man_all_sections()
+{
+    declare -a man_pages
+    if path_walk_find_all "man_pages" "$1"; then
+        echo "Found ${#man_pages[@]} matching man pages:"
+        declare mpage
+        for mpage in "${man_pages[@]}"; do
+            echo "   $mpage"
+        done
+    else
+        echo "Failed to find any man pages for '$1'."
+    fi
+}
+
+survey_man_file()
+{
+    local -a smf_heads=()
+    local type
+    (( ++tsmf_total ))
+    if file_extract_headers_man "smf_heads" "$1"; then
+        type="man"
+        (( tsmf_man++ ))
+    elif file_extract_headers_mandoc "smf_heads" "$1"; then
+        type="mdc"
+        (( tsmf_mandoc++ ))
+    elif file_identify_alias "$1"; then
+        type="als"
+        (( tsmf_alias++ ))
+    else
+        type="non"
+        (( tsmf_other++ ))
+    fi
+
+    echo "$type: $1"
+}
+
+test_survey_man_files()
+{
+    local -i tsmf_total=0
+    local -i tsmf_man=0
+    local -i tsmf_mandoc=0
+    local -i tsmf_alias=0
+    local -i tsmf_other=0
+
+    walk_man_files "survey_man_file"
+
+    echo
+    echo "con: Out of ${tsmf_total} man files found,"
+    echo "con: ${tsmf_man} use man macros,"
+    echo "con: ${tsmf_mandoc} use mandoc macros,"
+    echo "con: ${tsmf_alias} are aliases for other man pages, and"
+    echo "con: ${tsmf_other} use none of the above."
+
+}
+
+
+########## Start Execution Here ############
+get_man_paths "ManPaths"
+get_search_order "SearchOrder"
+
+if [ "$#" -gt 0 ]; then
+    test_find_man_file "$1"
+    test_find_man_all_sections "$1"
+else
+    test_survey_man_files
+fi
+

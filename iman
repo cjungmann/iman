@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+declare APPFOLDER=$( readlink -f "$0" )
+APPFOLDER="${APPFOLDER%/*}"
+source "$APPFOLDER"/sources/include
+source "$APPFOLDER"/man_seeker.sh
+source "$APPFOLDER"/man_heads.sh
+source "$APPFOLDER"/man_pager.sh
+
+iman_heads_report()
+{
+    local -n ihr_heads="$1"
+    local ihr_name="$2"
+
+    echo "There are ${#ihr_heads[@]} elements in the array."
+    lui_list_describe "ihr_heads"
+
+    local OIFS="$IFS"
+    IFS=$'\n'
+    echo "ihr_heads:"
+    echo "${ihr_heads[*]}"
+    IFS="$OIFS"
+    read -n1 -p Press\ key\ to\ continue
+    reset_screen
+}
+
+iman_open()
+{
+    local io_path="$1"
+    local io_command="$2"
+    local io_section="$3"
+
+    local -a io_heads
+    if man_heads_read "io_heads" "$io_path"; then
+        hide_cursor
+        local -i io_selection
+        mp_start_pager "io_selection" "io_heads" "$io_command" "$io_section"
+        show_cursor
+    fi
+}
+
+#############################################
+########## SCRIPT EXECUTION BEGINS ##########
+#############################################
+
+if [ "$#" -gt 0 ]; then
+    declare man_path=""
+    declare man_command=""
+    declare man_section=""
+    if man_seeker_find_man_file "man_path" "man_command" "man_section" "$@"; then
+        reset_screen
+
+        echo "request $man_command, section $man_section with file '$man_path'"
+        read -n1 -pContinue
+
+        man_heads_read_headers "$man_path"
+
+
+        # iman_open "$man_path" "$man_command" "$man_section"
+    else
+        echo "No manual entry for $man_command in section $man_section."
+    fi
+else
+    echo "No man page to seek"
+fi
