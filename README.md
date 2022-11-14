@@ -72,7 +72,7 @@ user@host:~/.local/bin$ cp -s ../opt/iman/iman .
 This project builds on another project of mine that enables a text
 user interface entirely built in Bash.
 
-The project is [bash_patterns](httsp://www.github.com/cjungmann/bash_patterns].
+The project is [bash_patterns](httsp://www.github.com/cjungmann/bash_patterns).
 This project uses the **sources** directory of **bash_patterns**.
 
 I thought about trying to make **iman** self-sufficient, but the
