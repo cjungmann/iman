@@ -3,201 +3,139 @@
 
 man_heads_sub_IFS=$'|'
 
-man_heads_groff_request_to_int()
-{
-    local -n igrti_return="$1"
-    case "$2" in
-        TH|Dt ) igrti_return=0 ;;
-        SH|Sh ) igrti_return=1 ;;
-        SS|Ss ) igrti_return=2 ;;
-        * )
-            igrti_return=-1
-            echo "Unexpected request value '$2'"
-            exit
-            ;;
-    esac
-}
-
 # This regex works with grep, but not for Bash:
 # declare re=^\\.\\\(TH\\\|SH\\\SS\\\Dt\\\Sh\\\Ss\\\)\ *\\\(\\\.*\\\)$
 
 # declare man_heads_headers_regex=^\\.\(TH\|Dt\|SH\|Sh\|SS\|Ss\)\ \(.*\)
 declare man_heads_headers_regex='^\.(TH|Dt|SH|Sh|SS|Ss)\ (.*)'
 
-man_heads_read_headers_gzip()
+# Saves the current section name to the lui_list named by $1,
+# saving a concatenated subheads list along with the section name
+#
+# Args:
+#   (name)   name of lui_list to which a new section element will be added
+#   (string) section title name
+#   (name)   name of an array of subsection names
+man_heads_save_section()
 {
-    local mhrhg_path="$1"
-
-    local mhrhg_line
-    while read -r "mhrhg_line"; do
-        if [[ "$mhrhg_line" =~ $man_heads_headers_regex  ]]; then
-           echo "${BASH_REMATCH[1]} value is ${BASH_REMATCH[2]}"
-        fi
-    done < <( gzip -dc "$mhrhg_path" )
-    # done < <( zcat "$mhrhg_path" )
-}
-
-man_heads_read_headers_plain()
-{
-    local mhrhp_path="$1"
-
-    local mhrhp_line
-    while read -r "mhrhp_line"; do
-        if [[ "$mhrhp_line" =~ $man_heads_headers_regex  ]]; then
-           echo "${BASH_REMATCH[1]} value is ${BASH_REMATCH[2]}"
-        fi
-    done < "$mhrhp_path"
-}
-
-man_heads_read_headers()
-{
-    local mhrh_file="$1"
-    if [ "${mhrh_file##*.}" == "gz" ]; then
-        man_heads_read_headers_gzip "$mhrh_file"
-    else
-        man_heads_read_headers_plain "$mhrh_file"
-    fi
-}
-
-man_heads_extract_headers()
-{
-    local -n mheh_headers="$1"
-    local mheh_path="$2"
-
-    local -a mheh_args
-
-    if [ "${mheh_path##*.}" == "gz" ]; then
-        mheh_args=( gzip -dc "$mheh_path" )
-    else
-        mheh_args=( cat "$mheh_path" )
-    fi
-
-    "${mheh_path[@]}"
-}
-
-man_heads_extract_headers_man()
-{
-    local -n fehm_headers="$1"
-    local fehm_path="$2"
-    mapfile -t "$1" < <( zgrep ^\\.\\\(TH\\\|SH\\\|SS\\\) "$fehm_path" )
-    [ "${#fehm_headers[@]}" -gt 0 ]
-}
-
-man_heads_extract_headers_mdoc()
-{
-    local -n fehmd_headers="$1"
-    local fehmd_path="$2"
-    mapfile -t "$1" < <( zgrep '^\.\(Dt\|Sh\|Ss\)' "$fehmd_path" )
-    [ "${#fehmd_headers[@]}" -gt 0 ]
-}
-
-declare man_heads_regex='\.([[:alpha:]]{2}) *(.*)$'
-
-man_heads_classify_head()
-{
-    local -n mhc_return="$1"
-    local mhc_string="$2"
-
-    if [[ "$mhc_string" =~ $man_heads_regex ]]; then
-        local -i mhc_level
-        local mhc_req mhc_str
-
-        mhc_req="${BASH_REMATCH[1]}"
-        mhc_str="${BASH_REMATCH[2]}"
-        case "$mhc_req" in
-            "TH"|"Dt" ) mhc_level=0 ;;
-            "SH"|"Sh" ) mhc_level=1 ;;
-            "SS"|"Ss" ) mhc_level=2 ;;
-            * )
-                echo "Unexpected request"
-                exit 1
-                ;;
-        esac
-
-        # Special TH handling: only use first argument
-        if [ "mhc_req" == "TH" ]; then
-            local -a mhc_th_arr=( $mhc_str )
-            mhc_str="${mhc_th_arr[0]}"
-        fi
-
-        mhc_return=( "$mhc_level" "$mhc_str" )
-        return 0
-    fi
-
-    return 1
-}
-
-man_heads_listify()
-{
-    local -n mhl_return="$1"
-    local -n mhl_heads="$2"
+    local -n mhss_return="$1"
+    local mhss_name="$2"
+    local -n mhss_subs="$3"
 
     local OIFS="$IFS"
-
-    local -a mhl_section
-    local -a mhl_subheads
-
-    local mhl_head
-    local -a mhl_entry
-    local -i mhl_entry_count=0
-
-    # "Closure" function for code needed twice in function
-    mhl_save_section()
-    {
-        if [ "${#mhl_section[@]}" -gt 0 ]; then
-            if [ "${#mhl_subheads[@]}" -gt 0 ]; then
-                IFS="$man_heads_sub_IFS"
-                mhl_section+=( "${mhl_subheads[*]}" 0 )
-                IFS="$OIFS"
-            else
-                mhl_section+=( "" 0 )
-            fi
-
-            mhl_return+=( "${mhl_section[@]}" )
-            (( ++mhl_entry_count ))
-
-            mhl_section=()
-            mhl_subheads=()
-        fi
-    }
-
-    mhl_return=( 3 0 )
-
-    for mhl_head in "${mhl_heads[@]}"; do
-        if man_heads_classify_head "mhl_entry" "$mhl_head"; then
-            case "${mhl_entry[0]}" in
-                0 ) ;;
-                1 ) mhl_save_section
-                    mhl_section=( "${mhl_entry[1]}" )
-                    ;;
-                2 ) mhl_subheads+=( "${mhl_entry[1]}" )
-                   ;;
-            esac
-        else
-            echo "classification failed."
-        fi
-    done
-
-    # Process unfinished section
-    mhl_save_section
-
-    # Update rows count
-    mhl_return[1]="$mhl_entry_count"
+    IFS='|'
+    mhss_return+=( "$mhss_name" "${mhss_subs[*]}" 0 )
+    IFS="$OIFS"
 }
 
-man_heads_read()
+# Processes a raw line of file input, saving header values found in
+# the raw groff text.
+#
+# This function uses variable references so the saved values will
+# persist between calls, especially for accumulating subheads that
+# will be combined into a single string value for a section header
+# lui_list row.
+#
+# Args:
+#   (name):   name of lui_list to which results are saved
+#   (name):   name of variable that contains the current line
+#   (name):   name of variable to save or write header title
+#   (name):   name of array of accumulated subhead names
+man_heads_process_header()
 {
-    local -n mhr_return="$1"
-    local mhr_path="$2"
+    local -n mhph_return="$1"
+    local -n mhph_line="$2"
+    local -n mhph_section_name="$3"
+    local -n mhph_subs="$4"
 
-    local -a mhr_heads
+    local mhph_value
 
-    if man_heads_extract_headers_man "mhr_heads" "$mhr_path" || \
-            man_heads_extract_headers_mdoc "mhr_heads" "$mhr_path"; then
-        man_heads_listify "mhr_return" "mhr_heads"
-        return 0
+    if [[ "$mhph_line" =~ $man_heads_headers_regex  ]]; then
+        mhph_value="${BASH_REMATCH[2]}"
+        if [ "${mhph_value:0:1}" == '"' ] && \
+               [ "${mhph_value: -1:1}" == '"' ]; then
+            mhph_value="${mhph_value:1}"
+            mhph_value="${mhph_value%\"}"
+        fi
+        case "${BASH_REMATCH[1]}" in
+            TH|Dt) ;;
+            SH|Sh)
+                if [ -n "$mhph_section_name" ]; then
+                    man_heads_save_section "$1" "$mhph_section_name" "mhph_subs"
+                    mhph_subs=()
+                fi
+                mhph_section_name="$mhph_value"
+                ;;
+            SS|Ss)
+                mhph_subs+=( $"mhph_value" )
+                ;;
+        esac
+    fi
+ }
+
+# Process the contents of a gzipped man page soure file.
+#
+# Args:
+#   (name):   name of lui list to which sections info will be saved
+#   (string): path to man file to be processed
+man_heads_read_headers_gzip()
+{
+    local mhrh_return_name="$1"
+    local mhrh_path="$2"
+
+    local mhrh_section_title
+    local -a mhrh_subs=()
+
+    local -a mhrh_line
+    while read -r "mhrh_line"; do
+        man_heads_process_header "$mhrh_return_name" "mhrh_line" "mhrh_section_title" "mhrh_subs"
+    done < <( gzip -dc "$mhrh_path" )
+
+    if [ -n "$mhrh_section_name" ]; then
+        man_heads_save_section "$1" "$mhrh_section_title" "mhrh_subs"
+    fi
+}
+
+# Process the contents of a plain-text man page source file
+#
+# Args:
+#   (name):   name of lui list to which sections info will be saved
+#   (string): path to man file to be processed
+man_heads_read_headers_plain()
+{
+    local mhrh_return_name="$1"
+    local mhrh_path="$2"
+
+    local mhrh_section_title
+    local -a mhrh_subs=()
+
+    local -a mhrh_line
+    while read -r "mhrh_line"; do
+        man_heads_process_header "$mhrh_return_name" "mhrh_line" "mhrh_section_title" "mhrh_subs"
+    done < "$mhrh_path"
+
+    if [ -n "$mhrh_section_name" ]; then
+        man_heads_save_section "$1" "$mhrh_section_title" "mhrh_subs"
+    fi
+}
+
+# Calls appropriate head_headers function according to the file type.
+#
+# Args:
+#   (name):   name of array in which to return the lui_list of sections
+#   (string): path to man page source text to process
+man_heads_read_headers()
+{
+    local -n mhrh_list="$1"
+    local mhrh_file="$2"
+
+    mhrh_list=( 3 0 )
+
+    if [ "${mhrh_file##*.}" == "gz" ]; then
+        man_heads_read_headers_gzip "mhrh_list" "$mhrh_file"
+    else
+        man_heads_read_headers_plain "mhrh_list" "$mhrh_file"
     fi
 
-    return 1
+    lui_list_init "mhrh_list"
 }
-
