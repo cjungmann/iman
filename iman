@@ -31,9 +31,9 @@ iman_open()
     local io_section="$3"
 
     local -a io_heads
-    if man_heads_read "io_heads" "$io_path"; then
+    if man_heads_read_headers "io_heads" "$io_path"; then
         hide_cursor
-        local -i io_selection
+        local -i io_selection=0
         mp_start_pager "io_selection" "io_heads" "$io_command" "$io_section"
         show_cursor
     fi
@@ -49,14 +49,7 @@ if [ "$#" -gt 0 ]; then
     declare man_section=""
     if man_seeker_find_man_file "man_path" "man_command" "man_section" "$@"; then
         reset_screen
-
-        echo "request $man_command, section $man_section with file '$man_path'"
-        read -n1 -pContinue
-
-        man_heads_read_headers "$man_path"
-
-
-        # iman_open "$man_path" "$man_command" "$man_section"
+        iman_open "$man_path" "$man_command" "$man_section"
     else
         echo "No manual entry for $man_command in section $man_section."
     fi
