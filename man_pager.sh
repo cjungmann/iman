@@ -55,9 +55,11 @@ mp_line_jump()
 
     local -a mlj_row
     if lui_list_copy_row "mlj_row" "$mlj_list_name" "$mlj_index"; then
-        echo "row contains: '${mlj_row[*]}'"
-
-        man -P "less -p '^.${mlj_row[0]}'" "$mlj_section" "$mlj_command"
+        local qrey='^'"${mlj_row[0]}"
+        man -P "less -p'${qrey}'" "$mlj_section" "$mlj_command"
+    else
+        echo "failed to copy row with $mlj_list_name and $mlj_index"
+    read -n1 -p Punch\ it
     fi
 
     return 0
