@@ -20,11 +20,17 @@ mp_line_display()
     local -i mld_width="$2"
     local  mld_title="$3"
 
+    local mld_color=$'\e[m'
+
     if [ "$mld_target" -eq 1 ]; then
-        echo -n $'\e[44m'
+        mld_color=$'\e[44m'
     fi
-    force_length "$mld_title" "$mld_width"
-    echo $'\e[m'
+
+    local mld_line
+    hilite_prefixed_char "mld_line" "$mld_title" "" "$mld_color" "#"
+
+    force_length "$mld_line" "$mld_width"
+    echo
 }
 
 mp_line_expand()
@@ -44,6 +50,23 @@ mp_line_expand()
     return 0
 }
 
+mp_topic_open()
+{
+    local -i mto_index="$1"
+    local mto_list_name="$2"
+    local mto_command="$3"
+    local mto_section="$4"
+
+    local -a mto_row=()
+    if lui_list_copy_row "mto_row" "$mto_list_name" "$mto_index"; then
+        local qrey='^'"${mto_row[1]}"
+        man -P "less -p'${qrey}'" "$mlj_section" "$mlj_command"
+    else
+        echo "Failed to copy row index $mto_index in $mto_list_name."
+        read -n1 -p Press\ a\ key
+    fi
+}
+
 mp_line_jump()
 {
     local mlj_keyp="$1"
@@ -53,14 +76,16 @@ mp_line_jump()
     local mlj_command="$4"
     local mlj_section="$5"
 
-    local -a mlj_row
-    if lui_list_copy_row "mlj_row" "$mlj_list_name" "$mlj_index"; then
-        local qrey='^'"${mlj_row[0]}"
-        man -P "less -p'${qrey}'" "$mlj_section" "$mlj_command"
-    else
-        echo "failed to copy row with $mlj_list_name and $mlj_index"
-    read -n1 -p Punch\ it
-    fi
+    mp_topic_open "$mlj_index" "$mlj_list_name" "$mlj_command" "$mlj_section"
+
+    # local -a mlj_row
+    # if lui_list_copy_row "mlj_row" "$mlj_list_name" "$mlj_index"; then
+    #     local qrey='^'"${mlj_row[0]}"
+    #     man -P "less -p'${qrey}'" "$mlj_section" "$mlj_command"
+    # else
+    #     echo "failed to copy row with $mlj_list_name and $mlj_index"
+    # read -n1 -p Punch\ it
+    # fi
 
     return 0
 }
@@ -77,6 +102,29 @@ mp_start_pager()
     local -n msp_source="$2"
     local msp_command="$3"
     local msp_section="$4"
+
+    msp_open_topic()
+    {
+        local keyp="$1"
+        # ignore other arguments, which are available in the "closure"
+
+        if progressive_letter_search "msp_return" "$msp_keys_string" "$keyp"; then
+            mp_topic_open "$msp_return" "msp_source" "$msp_command" "$msp_section"
+        fi
+
+        return 0
+    }
+
+    local msp_keys_array=( "${mp_keys_array[@]}" )
+
+    if [ "$#" -gt 4 ]; then
+        local -n msp_hotkeys="$5"
+        local msp_packed_keys
+        local msp_keys_string
+        concat_array "msp_packed_keys" "msp_hotkeys" "|"
+        concat_array "msp_keys_string" "msp_hotkeys"
+        msp_keys_array+=( "$msp_packed_keys":msp_open_topic:"View Topic" )
+    fi
 
     local -a msp_paras=(
         "$msp_command($msp_section)"
@@ -96,6 +144,4 @@ mp_start_pager()
         )
 
     lui_list_generic "${msp_args[@]}"
-
-    echo "$msp_return"
 }
