@@ -2,6 +2,7 @@
 # be "sourced" into an executable script.
 
 man_heads_sub_IFS=$'|'
+man_heads_hotkey_prefix=$'#'
 
 # This regex works with grep, but not for Bash:
 # declare re=^\\.\\\(TH\\\|SH\\\SS\\\Dt\\\Sh\\\Ss\\\)\ *\\\(\\\.*\\\)$
@@ -9,23 +10,63 @@ man_heads_sub_IFS=$'|'
 # declare man_heads_headers_regex=^\\.\(TH\|Dt\|SH\|Sh\|SS\|Ss\)\ \(.*\)
 declare man_heads_headers_regex='^\.(TH|Dt|SH|Sh|SS|Ss)\ (.*)'
 
+# Set hilited character to first non-q letter in title
+# 
+# Args:
+#   (name)   name of string variable to which result is saved
+#   (name)   name of simple array of hotkey characters
+#   (string) section title
+man_heads_set_hilite_letter()
+{
+    local -n mhshl_return="$1"
+    local -n mhshl_hotkeys="$2"
+    local mhshl_title="$3"
+
+    local -i mhshl_len="${#mhshl_title}"
+    local -i mhshl_index=0
+    local mhshl_lower="${mhshl_title,,}"
+    local mhshl_hotkey
+
+    # use first non-q letter
+    while (( mhshl_index < mhshl_len)) && [ "${mhshl_lower:${mhshl_index}:1}" == "q" ]; do
+        (( ++mhshl_index ))
+    done
+
+    if (( mhshl_index < mhshl_len )); then
+        mhshl_hotkeys+=( "${mhshl_title:$mhshl_index:1}" )
+        local -a mhshl_array=(
+            "${mhshl_title:0:$mhshl_index}"
+            "${man_heads_hotkey_prefix}"
+            "${mhshl_title:${mhshl_index}}"
+        )
+        concat_array "mhshl_return" "mhshl_array"
+    else
+        # No appropriate letter, no highlight:
+        mhshl_return="$mhshl_title"
+    fi
+}
+
 # Saves the current section name to the lui_list named by $1,
 # saving a concatenated subheads list along with the section name
 #
 # Args:
 #   (name)   name of lui_list to which a new section element will be added
+#   (name)   name of array of hotkey characters
 #   (string) section title name
 #   (name)   name of an array of subsection names
 man_heads_save_section()
 {
     local -n mhss_return="$1"
-    local mhss_name="$2"
-    local -n mhss_subs="$3"
+    local mhss_hotkeys_name="$2"
+    local mhss_name="$3"
+    local -n mhss_subs="$4"
 
-    local OIFS="$IFS"
-    IFS='|'
-    mhss_return+=( "$mhss_name" "${mhss_subs[*]}" 0 )
-    IFS="$OIFS"
+    local mhss_label
+    man_heads_set_hilite_letter "mhss_label" "$mhss_hotkeys_name" "$mhss_name"
+
+    local -a mhss_sub_names=()
+    concat_array "mhss_sub_names" "mhss_subs" "|"
+    mhss_return+=( "$mhss_label" "$mhss_name" "$mhss_sub_names" 0 )
 }
 
 # Processes a raw line of file input, saving header values found in
@@ -38,15 +79,17 @@ man_heads_save_section()
 #
 # Args:
 #   (name):   name of lui_list to which results are saved
+#   (name):   name of array of hotkeys
 #   (name):   name of variable that contains the current line
 #   (name):   name of variable to save or write header title
 #   (name):   name of array of accumulated subhead names
 man_heads_process_header()
 {
     local -n mhph_return="$1"
-    local -n mhph_line="$2"
-    local -n mhph_section_name="$3"
-    local -n mhph_subs="$4"
+    local -n mhph_hotkeys="$2"
+    local -n mhph_line="$3"
+    local -n mhph_section_name="$4"
+    local -n mhph_subs="$5"
 
     local mhph_value
 
@@ -61,13 +104,13 @@ man_heads_process_header()
             TH|Dt) ;;
             SH|Sh)
                 if [ -n "$mhph_section_name" ]; then
-                    man_heads_save_section "$1" "$mhph_section_name" "mhph_subs"
+                    man_heads_save_section "$1" "$2" "$mhph_section_name" "mhph_subs"
                     mhph_subs=()
                 fi
                 mhph_section_name="$mhph_value"
                 ;;
             SS|Ss)
-                mhph_subs+=( $"mhph_value" )
+                mhph_subs+=( "$mhph_value" )
                 ;;
         esac
     fi
@@ -81,18 +124,24 @@ man_heads_process_header()
 man_heads_read_headers_gzip()
 {
     local mhrh_return_name="$1"
-    local mhrh_path="$2"
+    local mhrh_hotkeys_name="$2"
+    local mhrh_path="$3"
 
     local mhrh_section_title
     local -a mhrh_subs=()
 
     local -a mhrh_line
     while read -r "mhrh_line"; do
-        man_heads_process_header "$mhrh_return_name" "mhrh_line" "mhrh_section_title" "mhrh_subs"
+        man_heads_process_header "$mhrh_return_name" \
+                                 "$mhrh_hotkeys_name" \
+                                 "mhrh_line" \
+                                 "mhrh_section_title" \
+                                 "mhrh_subs"
+
     done < <( gzip -dc "$mhrh_path" )
 
     if [ -n "$mhrh_section_name" ]; then
-        man_heads_save_section "$1" "$mhrh_section_title" "mhrh_subs"
+        man_heads_save_section "$1" "$2" "$mhrh_section_title" "mhrh_subs"
     fi
 }
 
@@ -104,18 +153,24 @@ man_heads_read_headers_gzip()
 man_heads_read_headers_plain()
 {
     local mhrh_return_name="$1"
-    local mhrh_path="$2"
+    local mhrh_hotkeys_name="$2"
+    local mhrh_path="$3"
 
     local mhrh_section_title
     local -a mhrh_subs=()
 
     local -a mhrh_line
     while read -r "mhrh_line"; do
-        man_heads_process_header "$mhrh_return_name" "mhrh_line" "mhrh_section_title" "mhrh_subs"
+        man_heads_process_header "$mhrh_return_name" \
+                                 "$mhrh_hotkeys_name" \
+                                 "mhrh_line" \
+                                 "mhrh_section_title" \
+                                 "mhrh_subs"
+
     done < "$mhrh_path"
 
     if [ -n "$mhrh_section_name" ]; then
-        man_heads_save_section "$1" "$mhrh_section_title" "mhrh_subs"
+        man_heads_save_section "$1" "$2" "$mhrh_section_title" "mhrh_subs"
     fi
 }
 
@@ -127,14 +182,16 @@ man_heads_read_headers_plain()
 man_heads_read_headers()
 {
     local -n mhrh_list="$1"
-    local mhrh_file="$2"
+    local -n mhrh_hotkeys="$2"
+    local mhrh_file="$3"
 
-    mhrh_list=( 3 0 )
+    mhrh_list=( 4 0 )
+    mhrh_hotkeys=()
 
     if [ "${mhrh_file##*.}" == "gz" ]; then
-        man_heads_read_headers_gzip "mhrh_list" "$mhrh_file"
+        man_heads_read_headers_gzip "mhrh_list" "mhrh_hotkeys" "$mhrh_file"
     else
-        man_heads_read_headers_plain "mhrh_list" "$mhrh_file"
+        man_heads_read_headers_plain "mhrh_list" "mhrh_hotkeys" "$mhrh_file"
     fi
 
     lui_list_init "mhrh_list"
