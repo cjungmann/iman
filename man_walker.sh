@@ -1,3 +1,7 @@
+# shellcheck shell=bash
+# This script file does not run on its own, it must
+# be "sourced" into an executable script.
+
 # Following path order from command manpath and the section order,
 # visit each file until the callback function returns 0.
 #
@@ -8,11 +12,12 @@
 #   0 if the callback returns 0 (successful search)
 #   1 if all directories processed without success.
 #   extra parameters are packaged and sent to the callback function
+# shellcheck disable=SC2154 # man_seeker_search_order and man_seeker_paths are global
 man_seeker_walk_paths()
 {
     local wmp_callback="$1"
     shift
-    local -a wmp_extra=( $@ )
+    local -a wmp_extra=( "${@}" )
 
     local wmp_root wmp_subdir wmp_path
     for wmp_root in "${man_seeker_paths[@]}"; do
@@ -37,7 +42,7 @@ man_seeker_file_callback()
     local msfc_file_callback="$2"
 
     shift 2
-    local -a msfc_extra=( $@ )
+    local -a msfc_extra=( "${@}" )
 
     local OIFS="$IFS"
     local IFS=$'\n'
