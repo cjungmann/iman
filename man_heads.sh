@@ -1,5 +1,10 @@
+# shellcheck shell=bash
 # This script file does not run on its own, it must
 # be "sourced" into an executable script.
+
+# shellcheck disable=SC2034
+# Script calls functions that use `declare -n` for variable
+# references, which may appear to be unused.
 
 man_heads_sub_IFS=$'|'
 man_heads_hotkey_prefix=$'#'
@@ -33,7 +38,7 @@ man_heads_set_hilite_letter()
     done
 
     if (( mhshl_index < mhshl_len )); then
-        mhshl_hotkeys+=( "${mhshl_title:$mhshl_index:1}" )
+        mhshl_hotkeys+=( "${mhshl_lower:$mhshl_index:1}" )
         local -a mhshl_array=(
             "${mhshl_title:0:$mhshl_index}"
             "${man_heads_hotkey_prefix}"
@@ -56,7 +61,7 @@ man_heads_set_hilite_letter()
 #   (name)   name of an array of subsection names
 man_heads_save_section()
 {
-    local -n mhss_return="$1"
+    local -n mhss_return_list="$1"
     local mhss_hotkeys_name="$2"
     local mhss_name="$3"
     local -n mhss_subs="$4"
@@ -64,9 +69,9 @@ man_heads_save_section()
     local mhss_label
     man_heads_set_hilite_letter "mhss_label" "$mhss_hotkeys_name" "$mhss_name"
 
-    local -a mhss_sub_names=()
+    local mhss_sub_names
     concat_array "mhss_sub_names" "mhss_subs" "|"
-    mhss_return+=( "$mhss_label" "$mhss_name" "$mhss_sub_names" 0 )
+    mhss_return_list+=( "$mhss_label" "$mhss_sub_names" )
 }
 
 # Processes a raw line of file input, saving header values found in
@@ -137,10 +142,9 @@ man_heads_read_headers_gzip()
                                  "mhrh_line" \
                                  "mhrh_section_title" \
                                  "mhrh_subs"
-
     done < <( gzip -dc "$mhrh_path" )
 
-    if [ -n "$mhrh_section_name" ]; then
+    if [ -n "$mhrh_section_title" ]; then
         man_heads_save_section "$1" "$2" "$mhrh_section_title" "mhrh_subs"
     fi
 }
@@ -166,10 +170,9 @@ man_heads_read_headers_plain()
                                  "mhrh_line" \
                                  "mhrh_section_title" \
                                  "mhrh_subs"
-
     done < "$mhrh_path"
 
-    if [ -n "$mhrh_section_name" ]; then
+    if [ -n "$mhrh_section_title" ]; then
         man_heads_save_section "$1" "$2" "$mhrh_section_title" "mhrh_subs"
     fi
 }
@@ -185,7 +188,7 @@ man_heads_read_headers()
     local -n mhrh_hotkeys="$2"
     local mhrh_file="$3"
 
-    mhrh_list=( 4 0 )
+    mhrh_list=( 2 0 )
     mhrh_hotkeys=()
 
     if [ "${mhrh_file##*.}" == "gz" ]; then
