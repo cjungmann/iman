@@ -13,12 +13,13 @@ get_screen_dims()
 # Args:
 #   (integer):  1 if target, 0 if not
 #   (integer):  minimum width of line
-#   (various:   remaining arguments are field values
+#   (various):  remaining arguments are field values
 mp_line_display()
 {
     local -i mld_target="$1"
     local -i mld_width="$2"
-    local  mld_title="$3"
+    local mld_title="$3"
+    local mld_subs="$4"
 
     local mld_color=$'\e[m'
 
@@ -26,11 +27,16 @@ mp_line_display()
         mld_color=$'\e[44m'
     fi
 
+    # Mark section with subsections
+    if [ -n "$mld_subs" ]; then
+        mld_title="${mld_title} (+)"
+    fi
+
     local mld_line
     hilite_prefixed_char "mld_line" "$mld_title" "" "$mld_color" "#"
 
     force_length "$mld_line" "$mld_width"
-    echo
+    echo $'\e[m'
 }
 
 mp_line_expand()
@@ -59,8 +65,12 @@ mp_topic_open()
 
     local -a mto_row=()
     if lui_list_copy_row "mto_row" "$mto_list_name" "$mto_index"; then
-        local qrey='^'"${mto_row[1]}"
-        man -P "less -p'${qrey}'" "$mlj_section" "$mlj_command"
+        local mto_label="${mto_row[0]}"
+        local mto_name
+        remove_char_from_string "mto_name" "$mto_label" "$man_heads_hotkey_prefix"
+        local qrey='^'"${mto_name}"
+        # Option -G to prevent unnecessary possibly illegible highlighting of search term:
+        man -P "less -G -p'${qrey}'" "$mto_section" "$mto_command"
     else
         echo "Failed to copy row index $mto_index in $mto_list_name."
         read -n1 -p Press\ a\ key
@@ -77,15 +87,6 @@ mp_line_jump()
     local mlj_section="$5"
 
     mp_topic_open "$mlj_index" "$mlj_list_name" "$mlj_command" "$mlj_section"
-
-    # local -a mlj_row
-    # if lui_list_copy_row "mlj_row" "$mlj_list_name" "$mlj_index"; then
-    #     local qrey='^'"${mlj_row[0]}"
-    #     man -P "less -p'${qrey}'" "$mlj_section" "$mlj_command"
-    # else
-    #     echo "failed to copy row with $mlj_list_name and $mlj_index"
-    # read -n1 -p Punch\ it
-    # fi
 
     return 0
 }
@@ -123,7 +124,8 @@ mp_start_pager()
         local msp_keys_string
         concat_array "msp_packed_keys" "msp_hotkeys" "|"
         concat_array "msp_keys_string" "msp_hotkeys"
-        msp_keys_array+=( "$msp_packed_keys":msp_open_topic:"View Topic" )
+        local msp_keyaction="${msp_packed_keys}:msp_open_topic:View Topic"
+        msp_keys_array+=( "$msp_keyaction" )
     fi
 
     local -a msp_paras=(
@@ -135,7 +137,7 @@ mp_start_pager()
         "msp_source"
         0 0 20 80
         "mp_line_display"
-        "mp_keys_array"
+        "msp_keys_array"
         "msp_paras"
 
         # extra parameters
