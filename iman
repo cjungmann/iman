@@ -1,28 +1,12 @@
 #!/usr/bin/env bash
 
-declare APPFOLDER=$( readlink -f "$0" )
+declare APPFOLDER
+APPFOLDER=$( readlink -f "$0" )
 APPFOLDER="${APPFOLDER%/*}"
 source "$APPFOLDER"/sources/include
 source "$APPFOLDER"/man_seeker.sh
 source "$APPFOLDER"/man_heads.sh
 source "$APPFOLDER"/man_pager.sh
-
-iman_heads_report()
-{
-    local -n ihr_heads="$1"
-    local ihr_name="$2"
-
-    echo "There are ${#ihr_heads[@]} elements in the array."
-    lui_list_describe "ihr_heads"
-
-    local OIFS="$IFS"
-    IFS=$'\n'
-    echo "ihr_heads:"
-    echo "${ihr_heads[*]}"
-    IFS="$OIFS"
-    read -n1 -p Press\ key\ to\ continue
-    reset_screen
-}
 
 iman_open()
 {
@@ -30,14 +14,14 @@ iman_open()
     local io_command="$2"
     local io_section="$3"
 
+    # State-saving reference variables
     local -a io_hotkeys=()
     local -a io_heads
-    if man_heads_read_headers "io_heads" "io_hotkeys" "$io_path"; then
-        echo "io_hotkeys are ${io_hotkeys[*]}"
-        read -n1 -pPress
+    local -i io_selection
 
+    if man_heads_read_headers "io_heads" "io_hotkeys" "$io_path"; then
         hide_cursor
-        local -i io_selection=0
+        io_selection=0
         mp_start_pager "io_selection" "io_heads" "$io_command" "$io_section" "io_hotkeys"
         show_cursor
     fi
