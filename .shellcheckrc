@@ -1,0 +1,9 @@
+disable=SC2034  # Disable unused variable warning.
+#                 Widespread use of `declare -n` to return values.
+
+
+
+
+# Local Variables:
+# mode: sh
+# End:
