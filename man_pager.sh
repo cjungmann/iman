@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # This script file does not run on its own, it must
 # be "sourced" into an executable script.
 
@@ -67,13 +68,14 @@ mp_topic_open()
     if lui_list_copy_row "mto_row" "$mto_list_name" "$mto_index"; then
         local mto_label="${mto_row[0]}"
         local mto_name
+        # shellcheck disable=SC2154  # man_heads_hotkey_prefix defined in man_heads.sh
         remove_char_from_string "mto_name" "$mto_label" "$man_heads_hotkey_prefix"
         local qrey='^'"${mto_name}"
         # Option -G to prevent unnecessary possibly illegible highlighting of search term:
         man -P "less -G -p'${qrey}'" "$mto_section" "$mto_command"
     else
         echo "Failed to copy row index $mto_index in $mto_list_name."
-        read -n1 -p Press\ a\ key
+        read -n1 -r -p Press\ a\ key
     fi
 }
 
