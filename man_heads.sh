@@ -2,9 +2,6 @@
 # This script file does not run on its own, it must
 # be "sourced" into an executable script.
 
-# shellcheck disable=SC2034
-# Script calls functions that use `declare -n` for variable
-# references, which may appear to be unused.
 
 man_heads_sub_IFS=$'|'
 man_heads_hotkey_prefix=$'#'
