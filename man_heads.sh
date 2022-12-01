@@ -68,7 +68,8 @@ man_heads_save_section()
 
     local mhss_sub_names
     concat_array "mhss_sub_names" "mhss_subs" "|"
-    mhss_return_list+=( "$mhss_label" "$mhss_sub_names" )
+    local -a mhss_row=( "$mhss_label" "$mhss_sub_names" )
+    lui_list_append_row "mhss_return_list" "mhss_row"
 }
 
 # Processes a raw line of file input, saving header values found in
