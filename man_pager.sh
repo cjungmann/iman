@@ -30,7 +30,7 @@ mp_line_display()
         mld_color=$'\e[44m'
     fi
 
-    mld_title="$mld_title ($mld_line_start -- $mld_line_end)"
+   mld_title="$mld_title"
 
     # Mark section with subsections
     if [ -n "$mld_subs" ]; then
