@@ -67,16 +67,37 @@ mp_topic_open()
     local mto_list_name="$2"
     local mto_command="$3"
     local mto_section="$4"
+    local -n mto_lines="$5"
 
     local -a mto_row=()
     if lui_list_copy_row "mto_row" "$mto_list_name" "$mto_index"; then
-        local mto_label="${mto_row[0]}"
-        local mto_name
-        # shellcheck disable=SC2154  # man_heads_hotkey_prefix defined in man_heads.sh
-        remove_char_from_string "mto_name" "$mto_label" "$man_heads_hotkey_prefix"
-        local qrey='^'"${mto_name}"
-        # Option -G to prevent unnecessary possibly illegible highlighting of search term:
-        man -P "less -G -p'${qrey}'" "$mto_section" "$mto_command"
+        if [ 1 -eq 1 ]; then
+            local -i mto_start_line="${mto_row[2]}"
+            local -i mto_line_count="${mto_row[3]}"
+            local -a mto_display=( ".TH $mto_command" \
+                                       "${mto_lines[@]:${mto_start_line}:${mto_line_count}}" )
+
+            local -a groff_args=(
+                -t        # enable tbl preprocessing
+                -Tascii   # output device. alternative might be utf8
+                -man      # use "man" macro processor
+                )
+
+            local OIFS="$IFS"
+            IFS=$'\n'
+            echo "${mto_display[*]}" | groff "${groff_args[@]}" | less -c
+            IFS="$OIFS"
+        else
+            local mto_label="${mto_row[0]}"
+            local mto_name
+            # shellcheck disable=SC2154  # man_heads_hotkey_prefix defined in man_heads.sh
+            remove_char_from_string "mto_name" "$mto_label" "$man_heads_hotkey_prefix"
+            local qrey='^'"${mto_name}"
+            # Option -G to prevent unnecessary possibly illegible highlighting of search term:
+            man -P "less -G -p'${qrey}'" "$mto_section" "$mto_command"
+        fi
+
+
     else
         echo "Failed to copy row index $mto_index in $mto_list_name."
         read -n1 -r -p Press\ a\ key
@@ -91,8 +112,9 @@ mp_line_jump()
     # Extras:
     local mlj_command="$4"
     local mlj_section="$5"
+    local mlj_lines_name="$6"
 
-    mp_topic_open "$mlj_index" "$mlj_list_name" "$mlj_command" "$mlj_section"
+    mp_topic_open "$mlj_index" "$mlj_list_name" "$mlj_command" "$mlj_section" "$mlj_lines_name"
 
     return 0
 }
@@ -107,8 +129,9 @@ mp_start_pager()
 {
     local -n msp_return="$1"
     local -n msp_source="$2"
-    local msp_command="$3"
-    local msp_section="$4"
+    local msp_lines_name="$3"
+    local msp_command="$4"
+    local msp_section="$5"
 
     msp_open_topic()
     {
@@ -116,7 +139,7 @@ mp_start_pager()
         # ignore other arguments, which are available in the "closure"
 
         if progressive_letter_search "msp_return" "$msp_keys_string" "$keyp"; then
-            mp_topic_open "$msp_return" "msp_source" "$msp_command" "$msp_section"
+            mp_topic_open "$msp_return" "msp_source" "$msp_command" "$msp_section" "$msp_lines_name"
         fi
 
         return 0
@@ -124,8 +147,8 @@ mp_start_pager()
 
     local msp_keys_array=( "${mp_keys_array[@]}" )
 
-    if [ "$#" -gt 4 ]; then
-        local -n msp_hotkeys="$5"
+    if [ "$#" -gt 5 ]; then
+        local -n msp_hotkeys="$6"
         local msp_packed_keys
         local msp_keys_string
         concat_array "msp_packed_keys" "msp_hotkeys" "|"
@@ -149,6 +172,7 @@ mp_start_pager()
         # extra parameters
         "$msp_command"
         "$msp_section"
+        "$msp_lines_name"
         )
 
     lui_list_generic "${msp_args[@]}"
