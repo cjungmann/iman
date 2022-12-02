@@ -52,23 +52,27 @@ man_heads_set_hilite_letter()
 # saving a concatenated subheads list along with the section name
 #
 # Args:
-#   (name)   name of lui_list to which a new section element will be added
-#   (name)   name of array of hotkey characters
-#   (string) section title name
-#   (name)   name of an array of subsection names
+#   (name)    name of lui_list to which a new section element will be added
+#   (name)    name of array of hotkey characters
+#   (string)  section title name
+#   (name)    name of an array of subsection names
+#   (integer) line number of previous section head
+#   (integer) line-index of current line in source file
 man_heads_save_section()
 {
     local -n mhss_return_list="$1"
     local mhss_hotkeys_name="$2"
     local mhss_name="$3"
     local -n mhss_subs="$4"
+    local -i mhss_section_line="$5"
+    local -i mhss_counter="$6"
 
     local mhss_label
     man_heads_set_hilite_letter "mhss_label" "$mhss_hotkeys_name" "$mhss_name"
 
     local mhss_sub_names
     concat_array "mhss_sub_names" "mhss_subs" "|"
-    local -a mhss_row=( "$mhss_label" "$mhss_sub_names" )
+    local -a mhss_row=( "$mhss_label" "$mhss_sub_names" "$mhss_section_line" $(( mhss_counter-1 )) )
     lui_list_append_row "mhss_return_list" "mhss_row"
 }
 
@@ -81,11 +85,13 @@ man_heads_save_section()
 # lui_list row.
 #
 # Args:
-#   (name):   name of lui_list to which results are saved
-#   (name):   name of array of hotkeys
-#   (name):   name of variable that contains the current line
-#   (name):   name of variable to save or write header title
-#   (name):   name of array of accumulated subhead names
+#   (name):    name of lui_list to which results are saved
+#   (name):    name of array of hotkeys
+#   (name):    name of variable that contains the current line
+#   (name):    name of variable to save or write header title
+#   (name):    name of array of accumulated subhead names
+#   (name):    name of integer preserving last section line number
+#   (integer): line-index of current line in source file
 man_heads_process_header()
 {
     local -n mhph_return="$1"
@@ -93,6 +99,8 @@ man_heads_process_header()
     local -n mhph_line="$3"
     local -n mhph_section_name="$4"
     local -n mhph_subs="$5"
+    local -n mhph_section_line="$6"
+    local -i mhph_counter="$7"
 
     local mhph_value
 
@@ -107,10 +115,15 @@ man_heads_process_header()
             TH|Dt) ;;
             SH|Sh)
                 if [ -n "$mhph_section_name" ]; then
-                    man_heads_save_section "$1" "$2" "$mhph_section_name" "mhph_subs"
+                    man_heads_save_section "$1" "$2" \
+                                           "$mhph_section_name" \
+                                           "mhph_subs" \
+                                           "$mhph_section_line"\
+                                           "$mhph_counter"
                     mhph_subs=()
                 fi
                 mhph_section_name="$mhph_value"
+                mhph_section_line="$mhph_counter"
                 ;;
             SS|Ss)
                 mhph_subs+=( "$mhph_value" )
@@ -123,27 +136,41 @@ man_heads_process_header()
 #
 # Args:
 #   (name):   name of lui list to which sections info will be saved
+#   (name):   name of array of hotkeys
+#   (name):   name of array of plain source lines
 #   (string): path to man file to be processed
 man_heads_read_headers_gzip()
 {
     local mhrh_return_name="$1"
     local mhrh_hotkeys_name="$2"
-    local mhrh_path="$3"
+    local -n mhrh_lines_array="$3"
+    local mhrh_path="$4"
 
     local mhrh_section_title
     local -a mhrh_subs=()
 
+    local -i mhrh_section_line=0
+    local -i mhrh_counter=0
     local -a mhrh_line
     while read -r "mhrh_line"; do
         man_heads_process_header "$mhrh_return_name" \
                                  "$mhrh_hotkeys_name" \
                                  "mhrh_line" \
                                  "mhrh_section_title" \
-                                 "mhrh_subs"
+                                 "mhrh_subs" \
+                                 "mhrh_section_line" \
+                                 "$mhrh_counter"
+
+        mhrh_lines_array+=( "$mhrh_line" )
+        (( ++mhrh_counter ))
     done < <( gzip -dc "$mhrh_path" )
 
     if [ -n "$mhrh_section_title" ]; then
-        man_heads_save_section "$1" "$2" "$mhrh_section_title" "mhrh_subs"
+        man_heads_save_section "$1" "$2" \
+                               "$mhrh_section_title" \
+                               "mhrh_subs" \
+                               "$mhrh_section_line" \
+                               "$mhrh_counter"
     fi
 }
 
@@ -151,27 +178,40 @@ man_heads_read_headers_gzip()
 #
 # Args:
 #   (name):   name of lui list to which sections info will be saved
+#   (name):   name of array of hotkeys
+#   (name):   name of array of plain source lines
 #   (string): path to man file to be processed
 man_heads_read_headers_plain()
 {
     local mhrh_return_name="$1"
     local mhrh_hotkeys_name="$2"
-    local mhrh_path="$3"
+    local -n mhrh_lines_array="$3"
+    local mhrh_path="$4"
 
     local mhrh_section_title
     local -a mhrh_subs=()
 
+    local -i mhrh_section_line=0
+    local -i mhrh_counter=0
     local -a mhrh_line
     while read -r "mhrh_line"; do
         man_heads_process_header "$mhrh_return_name" \
                                  "$mhrh_hotkeys_name" \
                                  "mhrh_line" \
                                  "mhrh_section_title" \
-                                 "mhrh_subs"
+                                 "mhrh_subs" \
+                                 "mhrh_section_line" \
+                                 "$mhrh_counter"
+        mhrh_lines_array+=( "$mhrh_line" )
+        (( ++mhrh_counter ))
     done < "$mhrh_path"
 
     if [ -n "$mhrh_section_title" ]; then
-        man_heads_save_section "$1" "$2" "$mhrh_section_title" "mhrh_subs"
+        man_heads_save_section "$1" "$2" \
+                               "$mhrh_section_title" \
+                               "mhrh_subs" \
+                               "$mhrh_section_line" \
+                               "$mhrh_counter"
     fi
 }
 
@@ -184,15 +224,16 @@ man_heads_read_headers()
 {
     local -n mhrh_list="$1"
     local -n mhrh_hotkeys="$2"
-    local mhrh_file="$3"
+    local mhrh_lines_array_name="$3"
+    local mhrh_file="$4"
 
-    mhrh_list=( 2 0 )
+    mhrh_list=( 4 0 )
     mhrh_hotkeys=()
 
     if [ "${mhrh_file##*.}" == "gz" ]; then
-        man_heads_read_headers_gzip "mhrh_list" "mhrh_hotkeys" "$mhrh_file"
+        man_heads_read_headers_gzip "mhrh_list" "mhrh_hotkeys" "$mhrh_lines_array_name" "$mhrh_file"
     else
-        man_heads_read_headers_plain "mhrh_list" "mhrh_hotkeys" "$mhrh_file"
+        man_heads_read_headers_plain "mhrh_list" "mhrh_hotkeys" "$mhrh_lines_array_name" "$mhrh_file"
     fi
 
     lui_list_init "mhrh_list"
