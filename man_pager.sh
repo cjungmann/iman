@@ -21,6 +21,8 @@ mp_line_display()
     local -i mld_width="$2"
     local mld_title="$3"
     local mld_subs="$4"
+    local -i mld_line_start="$5"
+    local -i mld_line_end="$6"
 
     local mld_color=$'\e[m'
 
@@ -28,9 +30,11 @@ mp_line_display()
         mld_color=$'\e[44m'
     fi
 
+    mld_title="$mld_title ($mld_line_start -- $mld_line_end)"
+
     # Mark section with subsections
     if [ -n "$mld_subs" ]; then
-        mld_title="${mld_title} (+)"
+        mld_title="$mld_title (+)"
     fi
 
     local mld_line
