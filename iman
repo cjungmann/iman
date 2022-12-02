@@ -8,18 +8,28 @@ source "$APPFOLDER"/man_seeker.sh
 source "$APPFOLDER"/man_heads.sh
 source "$APPFOLDER"/man_pager.sh
 
+
+# Starts the user interface
+#
+# Args:
+#  (string):  path to man page source
+#  (string):  name of command for which the man page was requested
+#  (string):  section number of the manual
 iman_open()
 {
     local io_path="$1"
     local io_command="$2"
     local io_section="$3"
 
-    # State-saving reference variables
-    local -a io_hotkeys=()
-    local -a io_heads
+    # Various arrays to be filled by reading the source code,
+    # and used by the pager to deliver the user experience
+    local -a io_hotkeys=()   # simple array of keys matched to heads
+    local -a io_heads        # will be lui_list of heads for the lui_list interaction
+    local -a io_lines        # uncompressed source file for showing subsections
+
     local -i io_selection
 
-    if man_heads_read_headers "io_heads" "io_hotkeys" "$io_path"; then
+    if man_heads_read_headers "io_heads" "io_hotkeys" "io_lines" "$io_path"; then
         hide_cursor
         io_selection=0
         mp_start_pager "io_selection" "io_heads" "$io_command" "$io_section" "io_hotkeys"
