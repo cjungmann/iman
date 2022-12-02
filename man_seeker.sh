@@ -184,9 +184,13 @@ declare -a man_seeker_page_re_arr=(
 
     '?'      # group 2 is optional
 )
+
+declare man_seeker_page_re_ext=^\([^.]+\)\.\(.*\)
+declare man_seeker_page_re_paren
+
 declare OIFS="$IFS"
 IFS=''
-declare man_seeker_page_re="${man_seeker_page_re_arr[*]}"
+man_seeker_page_re_paren="${man_seeker_page_re_arr[*]}"
 IFS="$OIFS"
 unset man_seeker_page_re_arr
 
@@ -221,7 +225,12 @@ man_seeker_find_man_file()
             fi
             shift
         else
-            if [[ "$1" =~ $man_seeker_page_re ]]; then
+            if [[ "$1" =~ $man_seeker_page_re_ext ]]; then
+                fmf_command="${BASH_REMATCH[1]}"
+                if [ "${#BASH_REMATCH[@]}" -gt 2 ]; then
+                    fmf_section="${BASH_REMATCH[2]}"
+                fi
+            elif [[ "$1" =~ $man_seeker_page_re_paren ]]; then
                 fmf_command="${BASH_REMATCH[1]}"
                 if [ "${BASH_REMATCH[3]}" ]; then
                     fmf_section="${BASH_REMATCH[3]}"
