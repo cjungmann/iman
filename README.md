@@ -10,22 +10,24 @@ a search via pass-through arguments to the **less** pager utility.
 
 ## USAGE
 
-This is simple, type **iman** where you might type **man**.  It's
-not perfectly compatible: it won't properly handle a list of **man**
-pages like **man** does.
+Assuming setup as recommended below, usage is simple: simply type
+**iman** followed by the desired manpage.  You can specify the
+section as an argument, an extension, or in parentheses:
 
-~~~sh
-iman bash
-~~~
+**iman** *3 printf*  
+**iman** *printf.3*  
+**iman** *printf\\(3\\)*  
+**iman** *'printf(3)'*
 
-will show you an index of _Section Heads_.  Click on a section head
-and the script will open the **man** page with that section head at
-the top of the screen.
+There are no other options for now.
 
-Not yet working is the option to view the _Subheads_ under a section
-head.  I have a couple of ideas on how to do this, so it's still a
-work in progress.  It seems necessary for very long documents like
-the **Bash** man page.
+If the page is found, **iman** will display a list of *Section Heads_.
+Open a section by selecting the selection with the arrow keys and
+pressing `ENTER`.  Alternately, the user can type the highlighted
+letter of the desired section.  The section opens immediately if the
+highlighted letter is unique for the page, or it will cycle through
+sections with the same highlighted letter, after which the user
+presses `ENTER` to open the highlighted section.
 
 ## SETUP
 
