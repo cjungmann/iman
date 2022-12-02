@@ -72,7 +72,10 @@ man_heads_save_section()
 
     local mhss_sub_names
     concat_array "mhss_sub_names" "mhss_subs" "|"
-    local -a mhss_row=( "$mhss_label" "$mhss_sub_names" "$mhss_section_line" $(( mhss_counter-1 )) )
+    local -a mhss_row=( "$mhss_label" \
+                            "$mhss_sub_names" \
+                            "$mhss_section_line" \
+                            $(( mhss_counter - mhss_section_line )) )
     lui_list_append_row "mhss_return_list" "mhss_row"
 }
 
