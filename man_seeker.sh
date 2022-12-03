@@ -185,7 +185,7 @@ declare -a man_seeker_page_re_arr=(
     '?'      # group 2 is optional
 )
 
-declare man_seeker_page_re_ext=^\([^.]+\)\.\(.*\)
+declare man_seeker_page_re_ext=^\([^.]+\)\\.\(.+\)
 declare man_seeker_page_re_paren
 
 declare OIFS="$IFS"
