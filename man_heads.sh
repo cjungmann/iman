@@ -73,9 +73,10 @@ man_heads_save_section()
     local mhss_sub_names
     concat_array "mhss_sub_names" "mhss_subs" "|"
     local -a mhss_row=( "$mhss_label" \
-                            "$mhss_sub_names" \
                             "$mhss_section_line" \
-                            $(( mhss_counter - mhss_section_line )) )
+                            $(( mhss_counter - mhss_section_line ))
+                            "$mhss_sub_names" \
+                      )
     lui_list_append_row "mhss_return_list" "mhss_row"
 }
 
@@ -133,7 +134,7 @@ man_heads_process_header()
                 ;;
         esac
     fi
- }
+}
 
 # Process the contents of a gzipped man page soure file.
 #
@@ -205,6 +206,7 @@ man_heads_read_headers_plain()
                                  "mhrh_subs" \
                                  "mhrh_section_line" \
                                  "$mhrh_counter"
+
         mhrh_lines_array+=( "$mhrh_line" )
         (( ++mhrh_counter ))
     done < "$mhrh_path"
@@ -241,3 +243,4 @@ man_heads_read_headers()
 
     lui_list_init "mhrh_list"
 }
+

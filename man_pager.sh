@@ -20,9 +20,9 @@ mp_line_display()
     local -i mld_target="$1"
     local -i mld_width="$2"
     local mld_title="$3"
-    local mld_subs="$4"
-    local -i mld_line_start="$5"
-    local -i mld_line_end="$6"
+    local -i mld_line_start="$4"
+    local -i mld_line_end="$5"
+    local mld_subs="$6"
 
     local mld_color=$'\e[m'
 
@@ -72,8 +72,8 @@ mp_topic_open()
     local -a mto_row=()
     if lui_list_copy_row "mto_row" "$mto_list_name" "$mto_index"; then
         if [ 1 -eq 1 ]; then
-            local -i mto_start_line="${mto_row[2]}"
-            local -i mto_line_count="${mto_row[3]}"
+            local -i mto_start_line="${mto_row[1]}"
+            local -i mto_line_count="${mto_row[2]}"
             local -a mto_display=( ".TH $mto_command" \
                                        "${mto_lines[@]:${mto_start_line}:${mto_line_count}}" )
 
