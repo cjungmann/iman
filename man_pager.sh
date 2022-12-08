@@ -74,17 +74,28 @@ mp_topic_open()
         if [ 1 -eq 1 ]; then
             local -i mto_start_line="${mto_row[1]}"
             local -i mto_line_count="${mto_row[2]}"
-            local -a mto_display=( ".TH $mto_command" \
-                                       "${mto_lines[@]:${mto_start_line}:${mto_line_count}}" )
+
+            # The following contortions handle the differences
+            # between 'man' and 'mdoc' macro-sets.
+            local -a mto_display=(
+                ".$INTRO_REQUEST $mto_command"
+                "${mto_lines[@]:${mto_start_line}:${mto_line_count}}"
+            )
+
+            local macro_option="-man"
+            if [ "$INTRO_REQUEST" == "Dt" ]; then
+                macro_option="-mdoc"
+            fi
 
             local -a groff_args=(
                 -t        # enable tbl preprocessing
                 -Tascii   # output device. alternative might be utf8
-                -man      # use "man" macro processor
+                "$macro_option"
                 )
 
             local OIFS="$IFS"
             IFS=$'\n'
+
             echo "${mto_display[*]}" | groff "${groff_args[@]}" | less -c
             IFS="$OIFS"
         else
