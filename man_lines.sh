@@ -294,35 +294,36 @@ man_lines_read_file()
 # TESTING CODE TO BE DELETED WHEN VERFIED #
 ###########################################
 
-# declare APPFOLDER
-# APPFOLDER=$( readlink -f "$0" )
-# APPFOLDER="${APPFOLDER%/*}"
-# source "$APPFOLDER"/sources/include
-# source "$APPFOLDER"/man_seeker.sh
-# source "$APPFOLDER"/man_heads.sh
-# # source "$APPFOLDER"/man_lines.sh
-# source "$APPFOLDER"/man_pager.sh
-# # declare example_man="/usr/share/man/man1/bash.1"
-# declare example_man="/usr/share/man/man1/printf.1.gz"
-# declare example_mdoc="/usr/share/man/man7/markdown.7.gz"  # Markdown syntax manual
+declare APPFOLDER
+APPFOLDER=$( readlink -f "$0" )
+APPFOLDER="${APPFOLDER%/*}"
+source "$APPFOLDER"/sources/include
+source "$APPFOLDER"/man_seeker.sh
+source "$APPFOLDER"/man_heads.sh
+# source "$APPFOLDER"/man_lines.sh
+source "$APPFOLDER"/man_pager.sh
+# declare example_man="/usr/share/man/man1/bash.1"
+declare example_man="/usr/share/man/man1/printf.1.gz"
+declare example_mdoc="/usr/share/man/man7/markdown.7.gz"  # Markdown syntax manual
+declare example_macros="/usr/share/man/man7/groff.7.gz"   # Uses custom macros required for display.
 
-# man_lines_test()
-# {
-#     man_lines_init_state
+man_lines_test()
+{
+    man_lines_init_state
 
-#     read -n1 -p"Press key to start mdoc-macro man page"
-#     man_lines_read_file "$example_mdoc"
+    # declare etype="mdoc"
+    declare etype="macros"
+    declare -n filename="example_$etype"
 
-#     # read -n1 -p"Press key to start man-macro man page"
-#     # man_lines_read_file "$example_man"
+    read -n1 -p"Press key to start $etype example man page"
+    man_lines_read_file "$filename"
 
-#     local name_lines name_heads name_hotkeys
-#     man_lines_get_variable_names "name_lines" "name_heads" "name_hotkeys"
+    local name_lines name_heads name_hotkeys
+    man_lines_get_variable_names "name_lines" "name_heads" "name_hotkeys"
 
-#     lui_list_dump "$name_heads"
-#     read -n1 -pPress\ a\ key.
+    lui_list_dump "$name_heads"
+    read -n1 -pPress\ a\ key.
+    echo
+}
 
-
-# }
-
-# man_lines_test
+man_lines_test
