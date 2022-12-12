@@ -13,8 +13,6 @@ declare -a ARR_DEFS=()
 declare -a LIST_HEADS=( 4 0 )
 declare -a LIST_SUBHEADS=( 3 0 )
 declare -a ARR_HOTKEYS=()
-declare OPEN_DEF=""
-declare OPEN_DEFLINE=0
 declare OPEN_HEAD=""
 declare -i OPEN_LINE=0
 declare OPEN_SUBHEAD=""
@@ -31,8 +29,6 @@ man_lines_init_state()
     LIST_HEADS=( 4 0 )
     LIST_SUBHEADS=( 3 0 )
     ARR_HOTKEYS=()
-    OPEN_DEF=""
-    OPEN_DEFLINE=0
     OPEN_HEAD=""
     OPEN_LINE=0
     OPEN_SUBHEAD=""
