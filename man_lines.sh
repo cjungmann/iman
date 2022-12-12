@@ -13,12 +13,16 @@ declare -a ARR_DEFS=()
 declare -a LIST_HEADS=( 4 0 )
 declare -a LIST_SUBHEADS=( 3 0 )
 declare -a ARR_HOTKEYS=()
+declare OPEN_DEF=""
+declare OPEN_DEFLINE=0
 declare OPEN_HEAD=""
 declare -i OPEN_LINE=0
 declare OPEN_SUBHEAD=""
 declare -i OPEN_SUBLINE=0
 declare INTRO_REQUEST=""
 declare LINE_PROCESSOR=""
+
+declare -i LINE_INDEX=0
 
 man_lines_init_state()
 {
@@ -27,12 +31,16 @@ man_lines_init_state()
     LIST_HEADS=( 4 0 )
     LIST_SUBHEADS=( 3 0 )
     ARR_HOTKEYS=()
+    OPEN_DEF=""
+    OPEN_DEFLINE=0
     OPEN_HEAD=""
     OPEN_LINE=0
     OPEN_SUBHEAD=""
     OPEN_SUBLINE=0
     INTRO_REQUEST=""
     LINE_PROCESSOR="man_lines_read_file_type"
+
+    LINE_INDEX=0
 }
 
 man_lines_clear_subheads()
@@ -132,9 +140,6 @@ man_lines_new_section()
         man_lines_compress_subheads "mlns_subheads"
         man_lines_clear_subheads
 
-        man_lines_strip_quotes "mlns_title"
-        man_lines_add_hotkey_prefix "mlns_title"
-
         local -a mlns_row=(
             "$OPEN_HEAD"
             "$OPEN_LINE"
@@ -144,6 +149,9 @@ man_lines_new_section()
 
         lui_list_append_row "LIST_HEADS" "mlns_row"
     fi
+
+    man_lines_strip_quotes "mlns_title"
+    man_lines_add_hotkey_prefix "mlns_title"
 
     OPEN_HEAD="$mlns_title"
     OPEN_LINE="$mlns_line"
@@ -162,7 +170,7 @@ man_lines_new_subsection()
     if [ -n "$OPEN_SUBHEAD" ]; then
 
         local -a mlnss_row=(
-            "$mlns_title"
+            "$mlnss_title"
             "$OPEN_SUBLINE"
             $(( mlnss_line - OPEN_SUBLINE ))
         )
@@ -233,15 +241,21 @@ man_lines_read_file_type()
     fi
 }
 
+man_lines_process_line()
+{
+    local -n mlpl_line="$1"
+
+    ARR_LINES+=( "$mlpl_line" )
+    "$LINE_PROCESSOR" "$1" "$LINE_INDEX"
+    (( ++LINE_INDEX ))
+}
+
 man_lines_read_file_gzip()
 {
     local mlrf_path="$1"
-    local -i counter=0
     local mlrf_line
     while read -r "mlrf_line"; do
-        ARR_LINES+=( "$mlrf_line" )
-        "$LINE_PROCESSOR" "mlrf_line" "$counter"
-        (( ++counter ))
+        man_lines_process_line "mlrf_line"
     done < <( gzip -dc "$mlrf_path" )
     man_lines_new_section "" "$counter"
 }
@@ -252,9 +266,7 @@ man_lines_read_file_plain()
     local -i counter=0
     local mlrf_line
     while read -r "mlrf_line"; do
-        ARR_LINES+=( "$mlrf_line" )
-        "$LINE_PROCESSOR" "mlrf_line" "$counter"
-        (( ++counter ))
+        man_lines_process_line "mlrf_line"
     done < "$mlrf_path"
     man_lines_new_section "" "$counter"
 }
