@@ -183,12 +183,10 @@ iman_read_file()
                     if [ "$ms_header_level" -eq 3 ]; then
                         ms_header_query="[[:space:]]+$ms_header_query"
                     fi
-                    echo "Level $ms_header_level: using query '$ms_header_query'"
 
                     for (( line_ndx; line_ndx<ms_line_count; ++line_ndx )); do
                         ms_man_line="${ms_man_lines[@]:$line_ndx:1}"
                         if [[ "$ms_man_line" =~ $ms_header_query ]]; then
-                            echo "Found head '$ms_header' at line $line_ndx"
                             break
                         fi
                     done
@@ -235,7 +233,6 @@ iman_read_file()
             if (( es_headers_ndx+1 < es_headers_count )); then
                 ins_level="${es_headers[$(( es_headers_ndx++ ))]}"
                 ins_title="${es_headers[$(( es_headers_ndx++ ))]}"
-                echo "ins_level $ins_level for '$ins_title'"
 
                 mt_embolden_text "ins_query" "$ins_title"
                 if [ "$ins_level" -eq 3 ]; then
