@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+declare APPFOLDER
+APPFOLDER=$( readlink -f "$0" )
+APPFOLDER="${APPFOLDER%/*}"
+source "$APPFOLDER"/sources/include
+source "$APPFOLDER"/man_seeker.sh
+source "$APPFOLDER"/iman_tee.sh
+source "$APPFOLDER"/iman_pager.sh
+
+iman_open()
+{
+    local imo_path="$1"
+    local imo_page="$2"
+    local imo_section="$3"
+
+    local -a imo_sections
+    local -a imo_lines
+
+    iman_read_file "imo_sections" "imo_lines" "$imo_path"
+
+
+    # Only hide the cursor if we have the data, and then only
+    # after we set traps to restore it:
+    trap restore_console_state_show_cursor SIGINT
+    trap restore_console_state_show_cursor EXIT
+
+    save_console_state_hide_cursor
+
+    iman_start_ui "$imo_page" "$imo_section" "imo_sections" "imo_lines"
+
+    # local OIFS="$IFS"
+    # IFS=$'\n'
+    # less <<< "${im_sections[*]}"
+    # less <<< "${im_lines[*]}"
+    # IFS="$OIFS"
+}
+
+#############################################
+########## SCRIPT EXECUTION BEGINS ##########
+#############################################
+
+if [ "$#" -gt 0 ]; then
+    declare man_path=""
+    declare man_command=""
+    declare man_section=""
+    if man_seeker_find_man_file "man_path" "man_command" "man_section" "$@"; then
+        reset_screen
+        iman_open "$man_path" "$man_command" "$man_section"
+    else
+        echo "No manual entry for $man_command in section $man_section."
+    fi
+else
+    echo "No man page to seek"
+fi
