@@ -136,6 +136,14 @@ declare -a mp_keys_array=(
     $'+:mp_line_expand:Open Subheadings'
 )
 
+# Begin user interaction with data already collected.
+#
+# Args:
+#   (name):   name of integer variable in which the selection is returned
+#   (name):   name of lui_list of headers information
+#   (name):   name of array of rendered man page lines
+#   (string): name for which the man page was requested
+#   (string): man section id (1, 1p,  3, etc)
 mp_start_pager()
 {
     local -n msp_return="$1"
