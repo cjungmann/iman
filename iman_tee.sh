@@ -14,12 +14,18 @@ declare -a MT_LINES=()
 #   (integer):  section level
 #   (integer):  starting line index
 #   (integer):  line count
-declare -a MT_HEADLIST=( 4 0 )
+declare -a MT_LIST_SECTIONS=( 4 0 )
 
 declare MT_LIH_REGEX=^\([[:space:]]*\)\(\(.\)\\2\(.\)\)+$
 declare MT_HEADS_REGEX='^\.(TH|Dt|SH|Sh|SS|Ss)\ (.*)'
 declare MT_HEADS_DELIM=$'\x1F'
 
+# Clean up text following a (sub)section request, removing
+# unnecessary quotes, etc.
+#
+# Args
+#    (name):   variable to which result is written
+#    (string): text following section request request
 mt_clean_text()
 {
     local -n mct_return="$1"
@@ -33,7 +39,7 @@ mt_clean_text()
 #
 # Args
 #    (string)  path to file to which the headers will be written
-parse_heads()
+mt_parse_heads()
 {
     local ph_file="$1"
 
@@ -59,7 +65,7 @@ parse_heads()
     done
 }
 
-# Read the contents of the file created by the parse_heads() function.
+# Read the contents of the file created by the mt_parse_heads() function.
 # It will write to a lui_list with empty fields that will later be
 # filled with line positions of the header in the man page output.
 #
@@ -221,36 +227,71 @@ enumerate_sections()
     local -n es_headers="$2"
     local -n es_man_lines="$3"
 
-    local -i es_ndx=0
+    local -i es_headers_count="${#es_headers[@]}"
+    local -i es_headers_ndx=0
+
+    local es_title
+    local -i es_level=0
     local -i es_old_ndx=0
-    local es_line
+    local -i es_old_level=0
+    local es_old_title
 
-    update_
-
-    id_next_section()
+    # "lambda" function to use local variables in break-out code
+    es_id_next_section()
     {
-        local -n ins_query="$1"
-        local -i ins_level="${es_sections[$(( es_sections++ ))]}"
-        local ins_title="${es_sections[$(( es_sections++ ))]}"
+        local -n ins_title="$1"
+        local -n ins_level="$2"
+        local -n ins_query="$3"
 
-        embolden_text "ins_query" "$ins_title"
-        if [ "$ins_level" -eq 3 ]; then
-            ins_query="^[[:space:]]+$ins_query$"
-        else
-            ins_query="^$ins_query$"
+        if (( es_headers_ndx+2 < es_headers_count )); then
+            ins_level="${es_headers[$(( es_headers_ndx++ ))]}"
+            ins_title="${es_headers[$(( es_headers_ndx++ ))]}"
+
+            embolden_text "ins_query" "$ins_title"
+            if [ "$ins_level" -eq 3 ]; then
+                ins_query="^[[:space:]]+$ins_query$"
+            else
+                ins_query="^$ins_query$"
+            fi
+            return 0
         fi
+
+        return 1
     }
 
+    es_save_section()
+    {
+        local -i ess_count
+        (( ess_count = es_ndx - es_old_ndx - 1 ))
+        es_sections+=( "$es_old_title" "$es_old_level" "$es_old_ndx" "$ess_count" )
+    }
+
+    local -i es_ndx=0
+    local es_line
 
     for el_line in "${es_man_lines[@]}"; do
         if [ -z "$es_query" ]; then
-            id_next_section "es_query"
+            if ! es_id_next_section "es_title" "es_level" "es_query"; then
+                es_ndx="${#es_man_lines[*]}"
+                break
+            fi
         fi
         if [[ "$el_line" =~ $es_query ]]; then
-            if
-        
+            if [ "$es_old_ndx" -ne 0 ]; then
+                es_save_section
+            fi
+            es_old_title="$es_title"
+            es_old_level="$es_level"
+            es_old_ndx="$es_ndx"
+            # clear to trigger seeking next section name
+            es_query=
+        fi
+        (( ++es_ndx ))
     done
 
+    es_save_section
+
+    lui_list_init "es_sections"
 }
 
 
@@ -264,29 +305,19 @@ process_source()
     local pl_line
     while read -r "pl_line"; do
         process_rendered_line "$pl_line"
-    done < <( tee >( parse_heads "$headers_file" ) | groff -t -man -Tutf8 - )
+    done < <( tee >( mt_parse_heads "$headers_file" ) | groff -t -man -Tutf8 - )
 
     local -a array_heads
     read_heads "array_heads" "$headers_file"
     rm "$headers_file"
 
-    local -a ll_sections
-    measure_sections "ll_sections" "array_heads" "MT_LINES"
+    # measure_sections "MT_LIST_SECTIONS" "array_heads" "MT_LINES"
+    enumerate_sections "MT_LIST_SECTIONS" "array_heads" "MT_LINES"
 
     read -n1 -p Pause\ before\ displays
 
-    # Showing complete man page:
-    # local -i pl_count=0
-    # echo > man_tee.txt
-    # for pl_line in "${MT_LINES[@]}"; do
-    #     echo "$pl_line" >> man_tee.txt
-    # done
-
     IFS=$'\n'
-    less <<< "${MT_LINES[*]}"
-
-    less <<< "${array_heads[*]}"
-
+    less <<< "${MT_LIST_SECTIONS[*]}"
     IFS="$OIFS"
 }
 
@@ -315,7 +346,6 @@ if [ "$#" -lt 1 ]; then
     echo "USAGE:"
     echo "sh man_tee.sh /usr/share/man/man1/printf.1.gz"
     echo "sh man_tee.sh /usr/share/man/man1/bash.1"
-    test_embolden amazon bogus man
 else
     read_file "$1"
 fi
